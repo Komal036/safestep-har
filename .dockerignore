@@ -1,0 +1,9 @@
+.git
+.venv
+data
+outputs
+outputs_smoke
+tests
+notebooks
+**/__pycache__
+*.pt

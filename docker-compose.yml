@@ -1,0 +1,24 @@
+# docker compose up --build
+#   API:       http://localhost:8000/docs
+#   Dashboard: http://localhost:8501
+# Smoke-mode outputs instead:  SAFESTEP_OUTPUTS=outputs_smoke docker compose up --build
+services:
+  api:
+    build: .
+    environment:
+      SAFESTEP_OUTPUTS: ${SAFESTEP_OUTPUTS:-outputs}
+    volumes:
+      - ./${SAFESTEP_OUTPUTS:-outputs}:/app/${SAFESTEP_OUTPUTS:-outputs}:ro
+    ports:
+      - "8000:8000"
+
+  dashboard:
+    build: .
+    command: ["streamlit", "run", "app/dashboard.py", "--server.address", "0.0.0.0",
+              "--server.port", "8501", "--browser.gatherUsageStats", "false"]
+    environment:
+      SAFESTEP_OUTPUTS: ${SAFESTEP_OUTPUTS:-outputs}
+    volumes:
+      - ./${SAFESTEP_OUTPUTS:-outputs}:/app/${SAFESTEP_OUTPUTS:-outputs}:ro
+    ports:
+      - "8501:8501"

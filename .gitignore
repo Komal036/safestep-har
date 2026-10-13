@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+data/raw/
+data/synthetic/
+data/processed/
+outputs/
+outputs_smoke/
+mlruns/
+.ipynb_checkpoints/
+.DS_Store

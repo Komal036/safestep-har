@@ -1,0 +1,32 @@
+# On-device HAR model: 1D-CNN on the 3-axis accelerometer only (in g),
+# so it shares one sensor stream with the accelerometer-only fall detector.
+dataset: uci_har
+data_dir: data/raw
+channels:
+- total_acc
+use_gpu: true
+cv:
+  n_splits: 5
+train:
+  epochs: 40
+  batch_size: 128
+  lr: 0.001
+  weight_decay: 0.0001
+  patience: 8
+  label_smoothing: 0.05
+  val_subject_frac: 0.15
+  seed: 42
+  augment:
+    jitter_std: 0.03
+    scale_std: 0.1
+    rotate_deg: 15
+    p: 0.8
+models:
+  cnn1d:
+    filters:
+    - 64
+    - 64
+    - 128
+    kernel: 5
+    dropout: 0.2
+output_dir: outputs/deploy_har

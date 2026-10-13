@@ -1,0 +1,21 @@
+dataset: uci_har
+data_dir: data/raw
+sampling_rate_hz: 50
+
+cv:
+  n_splits: 5          # GroupKFold over subjects
+  seed: 42
+
+models:
+  random_forest:
+    n_estimators: 300
+    max_depth: null
+    n_jobs: -1
+  xgboost:
+    n_estimators: 400
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.9
+    colsample_bytree: 0.8
+
+output_dir: outputs/baseline

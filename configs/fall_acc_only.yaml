@@ -1,0 +1,54 @@
+# Ablation: accelerometer-only fall detector (one cheap sensor shared with HAR)
+dataset: sisfall
+data_dir: data/raw
+sampling_rate_hz: 50
+use_gpu: true
+window:
+  length: 128
+  adl_step: 64
+  train_peak_positions:
+  - 24
+  - 40
+  - 56
+  - 72
+  - 88
+  eval_peak_position: 48
+  stream_step: 25
+cv:
+  n_splits: 5
+train:
+  epochs: 30
+  batch_size: 128
+  lr: 0.001
+  weight_decay: 0.0001
+  patience: 6
+  label_smoothing: 0.0
+  val_subject_frac: 0.2
+  seed: 42
+  augment:
+    jitter_std: 0.03
+    scale_std: 0.1
+    rotate_deg: 30
+    p: 0.8
+model:
+  name: cnn1d
+  params:
+    filters:
+    - 32
+    - 64
+    - 64
+    kernel: 5
+    dropout: 0.2
+events:
+  target_recall: 0.95
+  refractory_s: 10
+  tolerance_s: 1.0
+threshold_baseline:
+  impact_g: 2.5
+  still_std_g: 0.15
+  settle_s: 0.5
+output_dir: outputs/fall_acc_only
+channels:
+- acc_x
+- acc_y
+- acc_z

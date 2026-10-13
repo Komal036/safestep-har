@@ -1,0 +1,46 @@
+# Deep models on PAMAP2 wrist IMU (12 activities). Set include_hr: true to add heart rate.
+dataset: pamap2
+data_dir: data/raw
+channels: null
+use_gpu: true
+cv:
+  n_splits: 5
+train:
+  epochs: 40
+  batch_size: 128
+  lr: 0.001
+  weight_decay: 0.0001
+  patience: 8
+  label_smoothing: 0.05
+  val_subject_frac: 0.15
+  seed: 42
+  augment:
+    jitter_std: 0.03
+    scale_std: 0.1
+    rotate_deg: 15
+    p: 0.8
+models:
+  cnn1d:
+    filters:
+    - 64
+    - 64
+    - 128
+    kernel: 5
+    dropout: 0.2
+  cnn_lstm:
+    filters:
+    - 64
+    - 64
+    kernel: 5
+    hidden: 64
+    lstm_layers: 2
+    dropout: 0.2
+  transformer:
+    patch: 8
+    d_model: 64
+    heads: 4
+    layers: 2
+    dropout: 0.1
+output_dir: outputs/deep_pamap2
+dataset_kwargs:
+  include_hr: false

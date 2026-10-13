@@ -1,0 +1,10 @@
+# Serving only (API + dashboard). No PyTorch: models run through ONNX Runtime.
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+pyyaml>=6.0
+onnxruntime>=1.17
+fastapi>=0.110
+uvicorn[standard]>=0.27
+streamlit>=1.50
+altair>=5.0
