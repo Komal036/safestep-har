@@ -65,69 +65,69 @@ docker compose up --build            # both, in a slim image with no PyTorch
 
 ## Status
 
-| Week | Stage | Status |
-|---|---|---|
-| 1 | Data pipeline: UCI HAR, PAMAP2 (wrist IMU), SisFall loaders, windowing, features | Done |
-| 2 | Feature baselines (Random Forest, XGBoost) with subject-wise CV | Done |
-| 3 | Deep models (1D-CNN, CNN-LSTM, transformer), augmentation, ablations | Done |
-| 4 | Fall detection with event-level metrics + caregiver safety rules | Done |
-| 5 | ONNX export, INT8 quantization, latency benchmarks, numpy-only runtime | Done |
-| 6 | Replay of a simulated day, FastAPI service, Streamlit dashboard, Docker, CI | Done |
+| Week | Stage                                                                            | Status |
+| ---- | -------------------------------------------------------------------------------- | ------ |
+| 1    | Data pipeline: UCI HAR, PAMAP2 (wrist IMU), SisFall loaders, windowing, features | Done   |
+| 2    | Feature baselines (Random Forest, XGBoost) with subject-wise CV                  | Done   |
+| 3    | Deep models (1D-CNN, CNN-LSTM, transformer), augmentation, ablations             | Done   |
+| 4    | Fall detection with event-level metrics + caregiver safety rules                 | Done   |
+| 5    | ONNX export, INT8 quantization, latency benchmarks, numpy-only runtime           | Done   |
+| 6    | Replay of a simulated day, FastAPI service, Streamlit dashboard, Docker, CI      | Done   |
 
 ## Evaluation protocol
 
-All results use **subject-wise splits** (GroupKFold over subject IDs), so no person appears in both train and test. Random window splits leak subject identity and inflate scores, so they are not reported. Deep models also hold out separate *training* subjects for early stopping, so test subjects never influence checkpoint selection. Every split has an assertion that fails on subject leakage.
+All results use **subject-wise splits** (GroupKFold over subject IDs), so no person appears in both train and test. Random window splits leak subject identity and inflate scores, so they are not reported. Deep models also hold out separate _training_ subjects for early stopping, so test subjects never influence checkpoint selection. Every split has an assertion that fails on subject leakage.
 
 Metrics: macro-F1 (primary), accuracy, per-class F1, confusion matrix.
 
-## Week 1-2: Data and baselines
+## 1-2: Data and baselines
 
 Every loader returns the same schema, so models never depend on a specific dataset:
 
 - `X`: float32 `(n_windows, window_len, n_channels)`, 2.56 s windows at 50 Hz
 - `y`, `subjects`, `channels`, `classes`
 
-| Dataset | Use | Notes |
-|---|---|---|
-| UCI HAR | Main HAR benchmark, 30 subjects, 6 activities | Waist smartphone |
-| PAMAP2 | Wrist-worn HAR, 9 subjects, 12 activities | Wrist IMU (+ optional heart rate), 100 Hz downsampled, windowed per continuous activity run |
-| SisFall | Falls (23 young adults) and ADLs (+15 elderly) | 200 Hz downsampled |
+| Dataset | Use                                            | Notes                                                                                       |
+| ------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| UCI HAR | Main HAR benchmark, 30 subjects, 6 activities  | Waist smartphone                                                                            |
+| PAMAP2  | Wrist-worn HAR, 9 subjects, 12 activities      | Wrist IMU (+ optional heart rate), 100 Hz downsampled, windowed per continuous activity run |
+| SisFall | Falls (23 young adults) and ADLs (+15 elderly) | 200 Hz downsampled                                                                          |
 
 Hand-crafted features: per-channel time and frequency statistics, orientation-independent magnitude signals, signal magnitude area, axis correlations.
 
-| Model | Dataset | Macro-F1 (subject-wise CV) |
-|---|---|---|
-| Random Forest | UCI HAR | _run to fill_ |
-| XGBoost | UCI HAR | _run to fill_ |
-| Random Forest | PAMAP2 wrist | _run to fill_ |
-| XGBoost | PAMAP2 wrist | _run to fill_ |
+| Model         | Dataset      | Macro-F1 (subject-wise CV) |
+| ------------- | ------------ | -------------------------- |
+| Random Forest | UCI HAR      | _run to fill_              |
+| XGBoost       | UCI HAR      | _run to fill_              |
+| Random Forest | PAMAP2 wrist | _run to fill_              |
+| XGBoost       | PAMAP2 wrist | _run to fill_              |
 
-## Week 3: Deep models
+## 3: Deep models
 
-| Model | Idea | Why it is here |
-|---|---|---|
-| `cnn1d` | 3 conv blocks + global average pooling | Small and quantization friendly, the on-device model |
-| `cnn_lstm` | Conv feature extractor + 2-layer LSTM | Models the order of motion patterns |
-| `transformer` | Strided-conv patch tokens + 2 encoder blocks | Tests whether attention helps on short IMU windows |
+| Model         | Idea                                         | Why it is here                                       |
+| ------------- | -------------------------------------------- | ---------------------------------------------------- |
+| `cnn1d`       | 3 conv blocks + global average pooling       | Small and quantization friendly, the on-device model |
+| `cnn_lstm`    | Conv feature extractor + 2-layer LSTM        | Models the order of motion patterns                  |
+| `transformer` | Strided-conv patch tokens + 2 encoder blocks | Tests whether attention helps on short IMU windows   |
 
 - Augmentation on raw signals before normalization: random 3D rotation of each sensor triplet (the device sits differently on each person), magnitude scaling, jitter.
 - Class-weighted cross-entropy with label smoothing, AdamW, cosine schedule, gradient clipping.
 - Each run reports parameter count and single-window CPU latency.
 
-| Model | Dataset | Macro-F1 | Params | CPU ms/window |
-|---|---|---|---|---|
-| 1D-CNN | UCI HAR | _run to fill_ | | |
-| CNN-LSTM | UCI HAR | _run to fill_ | | |
-| Transformer | UCI HAR | _run to fill_ | | |
-| 1D-CNN | PAMAP2 wrist | _run to fill_ | | |
+| Model       | Dataset      | Macro-F1      | Params | CPU ms/window |
+| ----------- | ------------ | ------------- | ------ | ------------- |
+| 1D-CNN      | UCI HAR      | _run to fill_ |        |               |
+| CNN-LSTM    | UCI HAR      | _run to fill_ |        |               |
+| Transformer | UCI HAR      | _run to fill_ |        |               |
+| 1D-CNN      | PAMAP2 wrist | _run to fill_ |        |               |
 
-| Ablation | Question | Macro-F1 (cnn1d) |
-|---|---|---|
-| All 9 channels | Baseline | _run to fill_ |
-| Accelerometer only | Is the cheapest sensor enough? | _run to fill_ |
-| No augmentation | Does rotation/scale augmentation help across people? | _run to fill_ |
+| Ablation           | Question                                             | Macro-F1 (cnn1d) |
+| ------------------ | ---------------------------------------------------- | ---------------- |
+| All 9 channels     | Baseline                                             | _run to fill_    |
+| Accelerometer only | Is the cheapest sensor enough?                       | _run to fill_    |
+| No augmentation    | Does rotation/scale augmentation help across people? | _run to fill_    |
 
-## Week 4: Fall detection and safety rules
+## 4: Fall detection and safety rules
 
 - **Event-level evaluation, not window accuracy.** The detector slides over whole recordings (0.5 s hop), nearby positive windows merge into one alarm (10 s refractory), and a fall only counts if an alarm overlaps the impact. Reported as **fall recall** and **false alarms per hour**, which is what a caregiver actually experiences.
 - **Threshold chosen on validation subjects** to reach 95% recall with the fewest false alarms. Missing a fall costs more than a false alarm.
@@ -135,28 +135,28 @@ Hand-crafted features: per-channel time and frequency statistics, orientation-in
 - **Impact-shift augmentation** so the model doesn't learn "spike in the middle = fall".
 - **Classic baseline:** impact above 2.5 g followed by stillness.
 
-| Detector | Fall recall | False alarms / h (all ADL) | False alarms / h (elderly ADL) |
-|---|---|---|---|
-| CNN, threshold tuned for 95% recall | _run to fill_ | | |
-| CNN, threshold 0.5 | _run to fill_ | | |
-| Impact + stillness rule | _run to fill_ | | |
+| Detector                            | Fall recall   | False alarms / h (all ADL) | False alarms / h (elderly ADL) |
+| ----------------------------------- | ------------- | -------------------------- | ------------------------------ |
+| CNN, threshold tuned for 95% recall | _run to fill_ |                            |                                |
+| CNN, threshold 0.5                  | _run to fill_ |                            |                                |
+| Impact + stillness rule             | _run to fill_ |                            |                                |
 
 `outputs/fall/fall_tradeoff.png` plots recall against false alarms per hour.
 
 The safety monitor (`src/safety/monitor.py`) is a streaming state machine over model outputs:
 
-| Alert | Severity | Rule (defaults, configurable in `SafetyConfig`) |
-|---|---|---|
-| `FALL_SUSPECTED` | high | Fall probability above the tuned threshold |
-| `FALL_NO_RECOVERY` | critical | Suspected fall followed by 30 s without movement |
-| `FALL_RECOVERED` | info | Upright and moving for 5 s after a suspected fall |
-| `INACTIVITY_CHECK` | medium | No movement for 2 h during the day (night stillness is sleep) |
-| `NIGHT_WANDERING` | medium | 5+ min of walking within 30 min, 22:00 to 06:00 |
-| `RESTLESS_PACING` | low | 6+ walking bouts within 30 min (daytime) |
+| Alert              | Severity | Rule (defaults, configurable in `SafetyConfig`)               |
+| ------------------ | -------- | ------------------------------------------------------------- |
+| `FALL_SUSPECTED`   | high     | Fall probability above the tuned threshold                    |
+| `FALL_NO_RECOVERY` | critical | Suspected fall followed by 30 s without movement              |
+| `FALL_RECOVERED`   | info     | Upright and moving for 5 s after a suspected fall             |
+| `INACTIVITY_CHECK` | medium   | No movement for 2 h during the day (night stillness is sleep) |
+| `NIGHT_WANDERING`  | medium   | 5+ min of walking within 30 min, 22:00 to 06:00               |
+| `RESTLESS_PACING`  | low      | 6+ walking bouts within 30 min (daytime)                      |
 
 Per-type cooldowns prevent alert storms, and a data gap over 5 minutes resets short-term state so a stale fall never resolves hours later.
 
-## Week 5: Edge deployment
+## 5: Edge deployment
 
 `src/export/onnx_export.py` turns a checkpoint into a deployable model:
 
@@ -167,16 +167,16 @@ Per-type cooldowns prevent alert storms, and a data gap over 5 minutes resets sh
 
 The transformer uses hand-written attention (Linear + matmul) because `nn.MultiheadAttention` exports to a graph that INT8 quantizers handle poorly (it barely shrank; the rewrite is about 2.5x smaller). `src/export/runtime.py` needs only numpy and onnxruntime.
 
-| Model | Variant | Size (KB) | Latency p50 (ms) | Macro-F1 |
-|---|---|---|---|---|
-| On-device HAR (acc-only 1D-CNN) | ONNX FP32 | _run to fill_ | | |
-| On-device HAR (acc-only 1D-CNN) | ONNX INT8 | _run to fill_ | | |
-| Fall detector (acc-only 1D-CNN) | ONNX FP32 | _run to fill_ | | |
-| Fall detector (acc-only 1D-CNN) | ONNX INT8 | _run to fill_ | | |
+| Model                           | Variant   | Size (KB)     | Latency p50 (ms) | Macro-F1 |
+| ------------------------------- | --------- | ------------- | ---------------- | -------- |
+| On-device HAR (acc-only 1D-CNN) | ONNX FP32 | _run to fill_ |                  |          |
+| On-device HAR (acc-only 1D-CNN) | ONNX INT8 | _run to fill_ |                  |          |
+| Fall detector (acc-only 1D-CNN) | ONNX FP32 | _run to fill_ |                  |          |
+| Fall detector (acc-only 1D-CNN) | ONNX INT8 | _run to fill_ |                  |          |
 
 Latency is measured on the dev machine's CPU with one thread. Rerun the export on the target device (for example a Raspberry Pi) for real on-device numbers.
 
-## Week 6: Replay, API and dashboard
+## 6: Replay, API and dashboard
 
 **One sensor, two models.** The deployed pair (`configs/deploy_har.yaml`, `configs/fall_acc_only.yaml`) both use only the 3-axis accelerometer in g, the cheapest sensor with the longest battery life.
 
@@ -184,24 +184,24 @@ Latency is measured on the dev machine's CPU with one thread. Rerun the export o
 
 **Simulated day** (`src/demo/session.py`): activity segments from a UCI HAR subject the HAR model never saw, plus a real SisFall fall from a held-out subject. The scenario triggers every alert type:
 
-| Time | Part | Expected alerts |
-|---|---|---|
-| 08:00 | Morning routine | none |
-| 10:30 | Fall in the hallway | `FALL_SUSPECTED`, then `FALL_NO_RECOVERY` |
-| 14:00 | Afternoon restlessness | `RESTLESS_PACING` |
-| 23:30 | Night wandering | `NIGHT_WANDERING` |
+| Time  | Part                   | Expected alerts                           |
+| ----- | ---------------------- | ----------------------------------------- |
+| 08:00 | Morning routine        | none                                      |
+| 10:30 | Fall in the hallway    | `FALL_SUSPECTED`, then `FALL_NO_RECOVERY` |
+| 14:00 | Afternoon restlessness | `RESTLESS_PACING`                         |
+| 23:30 | Night wandering        | `NIGHT_WANDERING`                         |
 
 **Dashboard** (`app/dashboard.py`): alert log with severity, replay slider, predicted vs ground-truth activity timeline, fall probability with threshold and alert markers, motion level, daily summary, and model size and latency.
 
 **API** (`app/api.py`, docs at `/docs`):
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /health` | Model status, classes, fall threshold |
-| `POST /predict` | Classify one window (stateless) |
+| Endpoint                    | Purpose                                                              |
+| --------------------------- | -------------------------------------------------------------------- |
+| `GET /health`               | Model status, classes, fall threshold                                |
+| `POST /predict`             | Classify one window (stateless)                                      |
 | `POST /devices/{id}/ingest` | Classify and update that device's safety monitor, returns new alerts |
-| `GET /devices/{id}/summary` | Time per activity and alert history |
-| `DELETE /devices/{id}` | Reset a device |
+| `GET /devices/{id}/summary` | Time per activity and alert history                                  |
+| `DELETE /devices/{id}`      | Reset a device                                                       |
 
 Example request (macOS/Linux shell; on Windows use the interactive `/docs` page):
 
@@ -241,4 +241,4 @@ Dockerfile          slim serving image (ONNX Runtime, no PyTorch)
 
 - UCI HAR: Anguita et al., 2013, UCI Machine Learning Repository
 - PAMAP2: Reiss and Stricker, 2012, UCI Machine Learning Repository
-- SisFall: Sucerquia, López and Vargas-Bonilla, 2017, *Sensors* 17(1):198
+- SisFall: Sucerquia, López and Vargas-Bonilla, 2017, _Sensors_ 17(1):198
