@@ -1,12 +1,18 @@
 """Loader for the SisFall dataset (Sucerquia et al., 2017).
 
-Layout expected under data_dir:
-    SisFall_dataset/SA01/D01_SA01_R01.txt   (young adults SA01..SA23)
-    SisFall_dataset/SE01/D01_SE01_R01.txt   (elderly SE01..SE15)
+Everything under data_dir/SisFall_dataset/ is searched recursively, so both
+the original layout and re-packaged mirrors work:
+    SisFall_dataset/SA01/D01_SA01_R01.txt              (original)
+    SisFall_dataset/Training/SA01/D01_SA01_R01.csv     (e.g. Kaggle re-uploads)
 
-Each line holds 9 raw ADC counts at 200 Hz, ending with ';':
-    ADXL345 acc (3), ITG3200 gyro (3), MMA8451Q acc (3)
-Codes D01..D19 are activities of daily living (ADL), F01..F15 are falls.
+Two file formats are read automatically, at 200 Hz:
+  * original: 9 raw ADC counts per line ending with ';'
+      ADXL345 acc (3), ITG3200 gyro (3), MMA8451Q acc (3)
+  * CSV with a header row, already converted to g and deg/s
+      (columns ADXL345_Acc_X..ITG3200_Gyro_Z first, extra columns ignored)
+The trial code (D01..D19 = activities of daily living, F01..F15 = falls) and
+the subject (SA01..SA23 young, SE01..SE15 elderly) are taken from the file
+name, or from its parent folders if the name does not contain them.
 
 We keep the ADXL345 accelerometer (g) and the gyroscope (deg/s),
 downsample to 50 Hz to match the HAR models, and expose two views:
@@ -27,7 +33,27 @@ CLASSES = ["adl", "fall"]
 ACC_SCALE = (2 * 16) / (2 ** 13)      # ADXL345, +-16 g, 13 bit
 GYRO_SCALE = (2 * 2000) / (2 ** 16)   # ITG3200, +-2000 deg/s, 16 bit
 
-_NAME = re.compile(r"^([DF])(\d{2})_(S[AE])(\d{2})_R(\d{2})\.txt$")
+_CODE = re.compile(r"(?<![A-Za-z0-9])([DF])(\d{2})(?!\d)", re.IGNORECASE)
+_SUBJ = re.compile(r"(?<![A-Za-z0-9])(S[AE])(\d{2})(?!\d)", re.IGNORECASE)
+_REP = re.compile(r"(?<![A-Za-z0-9])R(\d{2})(?!\d)", re.IGNORECASE)
+
+
+def parse_name(path, root):
+    """(kind, code, group, num, rep) from the file name, falling back to parent folders."""
+    parts = [path.stem] + [p for p in reversed(path.relative_to(root).parent.parts)]
+    found = {}
+    for part in parts:
+        for key, rx in (("code", _CODE), ("subj", _SUBJ), ("rep", _REP)):
+            if key not in found:
+                m = rx.search(part)
+                if m:
+                    found[key] = m.groups()
+    if "code" not in found or "subj" not in found:
+        return None
+    kind, code = found["code"]
+    group, num = found["subj"]
+    rep = found.get("rep", ("01",))[0]
+    return kind.upper(), code, group.upper(), num, rep
 
 
 def subject_id(group, num):
@@ -36,6 +62,20 @@ def subject_id(group, num):
 
 
 def parse_file(path):
+    """Return (n, 6) array: acc in g, gyro in deg/s."""
+    with open(path) as f:
+        first = f.readline()
+    if any(c.isalpha() for c in first):          # CSV with header, physical units
+        header = [h.strip().lower() for h in first.strip().split(",")]
+        data = np.loadtxt(path, delimiter=",", skiprows=1, ndmin=2)
+        want = ["adxl345_acc_x", "adxl345_acc_y", "adxl345_acc_z",
+                "itg3200_gyro_x", "itg3200_gyro_y", "itg3200_gyro_z"]
+        idx = [header.index(w) for w in want] if all(w in header for w in want) else list(range(6))
+        out = data[:, idx]
+        if len(out) == 0:
+            raise ValueError(f"No samples in {path}")
+        return out.astype(np.float64)
+
     rows = []
     with open(path) as f:
         for line in f:
@@ -60,12 +100,18 @@ def load_sisfall_trials(data_dir="data/raw", target_hz=50):
     if RAW_HZ % target_hz:
         raise ValueError("target_hz must divide 200")
     q = RAW_HZ // target_hz
-    trials = []
-    for path in sorted(root.glob("S[AE][0-9][0-9]/*.txt")):
-        m = _NAME.match(path.name)
-        if not m:
+    trials, seen, skipped = [], set(), []
+    files = sorted(p for p in root.rglob("*") if p.suffix.lower() in (".txt", ".csv"))
+    for path in files:
+        parsed = parse_name(path, root)
+        if parsed is None:
+            skipped.append(path)
             continue
-        kind, code, group, num, rep = m.groups()
+        kind, code, group, num, rep = parsed
+        key = (group, num, kind, code, rep)
+        if key in seen:                      # same trial present twice in a mirror
+            continue
+        seen.add(key)
         sig = parse_file(path)
         if q > 1:
             sig = resample_poly(sig, 1, q, axis=0)
@@ -79,7 +125,10 @@ def load_sisfall_trials(data_dir="data/raw", target_hz=50):
             "file": path.name,
         })
     if not trials:
-        raise FileNotFoundError(f"No SisFall trial files found under {root}")
+        examples = ", ".join(str(p.relative_to(root)) for p in skipped[:5]) or "none"
+        raise FileNotFoundError(
+            f"No SisFall trials found under {root}. Expected names containing a trial code "
+            f"(D01/F01) and subject (SA01/SE01). Example files seen: {examples}")
     return trials
 
 
